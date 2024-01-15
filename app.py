@@ -1,9 +1,10 @@
 import os
+import shutil
 from CFG import *
 from ml import get_answer_gpt
 from promts import get_promt
 from fastapi import FastAPI, UploadFile, File
-from ml import get_texts_from_file, get_vector_db, get_text_from_db
+from ml import get_texts_from_file, get_vector_db, get_text_from_db, get_vec_db_chroma, get_the_best_chunk
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from SQlite.sqlite import *
 from SQlite.vector_dbs import *
@@ -25,10 +26,15 @@ from urllib.parse import unquote
 #обработать ошибки
 @app.post("/file/upload-file")
 async def upload_file(file_name, username, file: UploadFile = File(...)):
-    file_content = await file.read()
-    db = get_vector_db(file_content)
-    file_name = unquote(file_name, encoding='utf-8')
-    db.save_local(f"Vector_dbs/{username}/{file_name}")
+    try:
+        with open(f'Vector_dbs/{username}/{file_name}',"wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        await file.close()
+    get_vec_db_chroma(f'Vector_dbs/{username}/{file_name}',username, file_name)
+
+    # file_name = unquote(file_name, encoding='utf-8')
+    # db.save_local(f"Vector_dbs/{username}/{file_name}")
     return True
 
 #обработать ошибки
@@ -46,10 +52,11 @@ async def upload_text(content, username, content_name):
 
 @app.post("/getanswer")
 async def get_answer_with_any_model(question, answers,choice,username):
-    text = get_text_from_db(question,choice, username)
-    promt = get_promt(question, text[0], answers)
+    # text = get_text_from_db(question,choice, username)
+    text = get_the_best_chunk(question,choice,username)
+    promt = get_promt(question, text, answers)
     answer = get_answer_gpt(promt)
-    return answer, text[0]
+    return answer, text
 
 
 @app.get("/create_user_table")

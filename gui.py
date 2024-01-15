@@ -45,7 +45,7 @@ def main():
                     response = requests.post('http://127.0.0.1:8000/getanswer', params=params).json()
                     print(response)
                     st.write(f'Правильный ответ: {response[0]}')
-                    # st.markdown(f'**Отрывок на основе которого дан ответ**\n: {response[1]["page_content"]}')
+                    st.markdown(f'**Отрывок на основе которого дан ответ**\n: {response[1]}')
 
                 selected_class = st.selectbox("Выбрать", ['Документ', 'Текст'])
                 if selected_class == 'Документ':

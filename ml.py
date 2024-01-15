@@ -1,6 +1,5 @@
 import io
 import fitz
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from openai import OpenAI
 from langchain.llms import HuggingFaceHub
@@ -10,9 +9,41 @@ from langchain_community.embeddings.openai import OpenAIEmbeddings
 import os
 from CFG import CFG
 from private import TOKEN_OPENAI
+from langchain.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain.vectorstores import Chroma
+from langchain_community.document_loaders import PyPDFLoader
+from pypdf import PdfReader
+
 
 os.environ['OPENAI_API_KEY'] = TOKEN_OPENAI
 embeddings = OpenAIEmbeddings()
+
+def get_vec_db_chroma(path, username, file_name):
+    reader = PdfReader(path)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    with open(f'{path}.txt','w', encoding='utf-8') as file:
+        file.write(text)
+
+    loader = TextLoader(f'{path}.txt', encoding='utf-8')
+    documents = loader.load()
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20)
+    all_splits = text_splitter.split_documents(documents)
+    vectordb = Chroma.from_documents(documents=all_splits, embedding=embeddings, persist_directory=f"Vector_dbs/{username}/{file_name}_db")
+    vectordb.persist()
+
+
+def get_the_best_chunk(question, choice, username):
+    vectordb = Chroma(persist_directory=f'Vector_dbs/{username}/{choice}', embedding_function=embeddings)
+    chunk = vectordb.similarity_search(question)
+    print(chunk)
+    return chunk
+
+
+
 
 def get_texts_from_file(file_content):
     buffer = io.BytesIO(file_content)
@@ -77,3 +108,39 @@ def get_answer_gpt(Promt):
 #         }
 #     )
 #     return llm
+
+
+# if __name__ == '__main__':
+    # loader = TextLoader("tt.txt",
+    #                     encoding="utf8")
+    # documents = loader.load()
+    # loader = PyPDFLoader(r'C:\Users\Bruhonog\PycharmProjects\Docs_q-a\Vector_dbs\55\Konspekt_UD_1_1.pdf')
+    # documents = loader.load()
+    # with open('doc.txt', 'w',encoding='utf-8') as file:
+    #     file.write(str(documents))
+
+    # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20)
+    # all_splits = text_splitter.split_documents(documents)
+    # vectordb = Chroma.from_documents(documents=all_splits, embedding=embeddings)
+    # r = vectordb.similarity_search_with_score('Есть ли в таблице внутри документа человек с фамилией Иванов ?')
+    # print(r)
+
+    # from pypdf import PdfReader
+    #
+    # reader = PdfReader(r"C:\Users\Bruhonog\PycharmProjects\Docs_q-a\Vector_dbs\55\Konspekt_UD_1_1.pdf")
+    # text = ""
+    # for page in reader.pages:
+    #     text += page.extract_text() + "\n"
+    # with open('doc.txt', 'w',encoding='utf-8') as file:
+    #     file.write(text)
+    # loader = TextLoader("doc.txt",
+    #                     encoding="utf8")
+    # documents = loader.load()
+    # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20)
+    # all_splits = text_splitter.split_documents(documents)
+    # vectordb = Chroma.from_documents(documents=all_splits, embedding=embeddings)
+    # r = vectordb.similarity_search_with_score('Есть ли в таблице внутри документа человек с фамилией Иванов ?')
+    # print(r)
+    # r = get_vec_db_chroma('e', '551', 'Konspekt_UD_1_1.pdf')
+    # chunk = get_the_best_chunk('Есть ли в таблице внутри документа человек с фамилией Иванов ?','Konspekt_UD_1_1.pdf_db', '551' )
+    # print(chunk)
